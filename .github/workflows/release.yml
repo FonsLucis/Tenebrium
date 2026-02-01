@@ -1,0 +1,83 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version (e.g., 0.1.0)"
+        required: true
+        type: string
+
+jobs:
+  build-release:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build release binaries
+        shell: bash
+        run: |
+          cargo build --release -p tenebriumd
+          cargo build --release -p tenebrium-cli
+
+      - name: Prepare dist
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXT=""
+          if [[ "$RUNNER_OS" == "Windows" ]]; then EXT=".exe"; fi
+          mkdir -p dist
+          cp "target/release/tenebriumd${EXT}" "dist/tenebriumd-${{ inputs.version }}-${RUNNER_OS}${EXT}"
+          cp "target/release/tenebrium-cli${EXT}" "dist/tenebrium-cli-${{ inputs.version }}-${RUNNER_OS}${EXT}"
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: tenebrium-${{ inputs.version }}-${{ runner.os }}
+          path: dist/
+
+  publish-release:
+    needs: build-release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+
+      - name: Flatten artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p release
+          find dist -type f -maxdepth 2 -exec cp {} release/ \;
+
+      - name: Generate checksums
+        shell: bash
+        run: |
+          cd release
+          sha256sum * > SHA256SUMS
+
+      - name: Generate release notes
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path release | Out-Null
+          ./tools/generate_release_notes.ps1 -Version "${{ inputs.version }}" -OutFile "release/RELEASE_NOTES.md"
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ inputs.version }}
+          name: Tenebrium v${{ inputs.version }}
+          body_path: release/RELEASE_NOTES.md
+          files: release/*

@@ -9,30 +9,58 @@ import json
 import hashlib
 from collections import OrderedDict
 from pathlib import Path
+from typing import Any, List, Sequence, TypedDict
 
 VECTORS_PATH = Path("crates/tenebrium-utxo/test_vectors/vectors.json")
+
+
+class Prevout(TypedDict):
+    txid: Sequence[int]
+    vout: int
+
+
+class Vin(TypedDict):
+    prevout: Prevout
+    script_sig: Sequence[int]
+    sequence: int
+
+
+class Vout(TypedDict):
+    value: int
+    script_pubkey: Sequence[int]
+
+
+class TxDict(TypedDict):
+    version: int
+    vin: List[Vin]
+    vout: List[Vout]
+    lock_time: int
 
 
 def double_sha256(b: bytes) -> bytes:
     return hashlib.sha256(hashlib.sha256(b).digest()).digest()
 
 
-def canonical_bytes_v1_from_txdict(tx: dict) -> bytes:
+def canonical_bytes_v1_from_txdict(tx: TxDict) -> bytes:
     # Reconstruct JSON in field order: version, vin, vout, lock_time
-    def prevout_order(po):
+    def prevout_order(po: Prevout) -> OrderedDict[str, Any]:
         return OrderedDict([("txid", po["txid"]), ("vout", po["vout"])])
 
-    def vin_entry(vin):
-        return OrderedDict([
-            ("prevout", prevout_order(vin["prevout"])),
-            ("script_sig", vin["script_sig"]),
-            ("sequence", vin["sequence"]),
-        ])
+    def vin_entry(vin: Vin) -> OrderedDict[str, Any]:
+        return OrderedDict(
+            [
+                ("prevout", prevout_order(vin["prevout"])),
+                ("script_sig", vin["script_sig"]),
+                ("sequence", vin["sequence"]),
+            ]
+        )
 
-    def vout_entry(vout):
-        return OrderedDict([("value", vout["value"]), ("script_pubkey", vout["script_pubkey"])])
+    def vout_entry(vout: Vout) -> OrderedDict[str, Any]:
+        return OrderedDict(
+            [("value", vout["value"]), ("script_pubkey", vout["script_pubkey"])]
+        )
 
-    od = OrderedDict()
+    od: OrderedDict[str, Any] = OrderedDict()
     od["version"] = tx["version"]
     od["vin"] = [vin_entry(v) for v in tx["vin"]]
     od["vout"] = [vout_entry(v) for v in tx["vout"]]
@@ -42,7 +70,7 @@ def canonical_bytes_v1_from_txdict(tx: dict) -> bytes:
     return s.encode("utf-8")
 
 
-def canonical_bytes_v2_from_txdict(tx: dict) -> bytes:
+def canonical_bytes_v2_from_txdict(tx: TxDict) -> bytes:
     # Build binary according to spec (little-endian ints, u64 lengths)
     out = bytearray()
     # version i32
@@ -56,18 +84,18 @@ def canonical_bytes_v2_from_txdict(tx: dict) -> bytes:
         # prevout.vout: u32
         out.extend((prev["vout"] & 0xFFFFFFFF).to_bytes(4, "little"))
         # script_sig_len: u64
-        out.extend((len(vin["script_sig"]) ).to_bytes(8, "little"))
+        out.extend((len(vin["script_sig"])).to_bytes(8, "little"))
         # script_sig bytes
         out.extend(bytes(vin["script_sig"]))
         # sequence u32
         out.extend((vin["sequence"] & 0xFFFFFFFF).to_bytes(4, "little"))
     # vout_count u64
-    out.extend((len(tx["vout"]) ).to_bytes(8, "little"))
+    out.extend((len(tx["vout"])).to_bytes(8, "little"))
     for vout in tx["vout"]:
         # value u64
-        out.extend((vout["value" ] & 0xFFFFFFFFFFFFFFFF).to_bytes(8, "little"))
+        out.extend((vout["value"] & 0xFFFFFFFFFFFFFFFF).to_bytes(8, "little"))
         # script_pubkey_len u64
-        out.extend((len(vout["script_pubkey"]) ).to_bytes(8, "little"))
+        out.extend((len(vout["script_pubkey"])).to_bytes(8, "little"))
         # script_pubkey bytes
         out.extend(bytes(vout["script_pubkey"]))
     # lock_time u32
