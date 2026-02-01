@@ -173,7 +173,11 @@ impl Mempool {
             return Ok(());
         }
         let mut entries: Vec<MempoolEntry> = self.map_v2.values().cloned().collect();
-        entries.sort_by(|a, b| fee_rate(a).partial_cmp(&fee_rate(b)).unwrap_or(std::cmp::Ordering::Equal));
+        entries.sort_by(|a, b| {
+            fee_rate(a)
+                .partial_cmp(&fee_rate(b))
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
         for entry in entries {
             self.remove_tx(&entry.txid_v2);
             if self.map_v2.len() < self.cfg.max_txs && self.total_bytes < self.cfg.max_total_bytes {

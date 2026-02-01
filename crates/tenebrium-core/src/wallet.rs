@@ -175,7 +175,9 @@ pub fn wallet_file_from_secret_with_kdf(
 
     let cipher = Aes256Gcm::new_from_slice(&key).map_err(|_| WalletError::AesGcm)?;
     if nonce.len() != 12 {
-        return Err(WalletError::InvalidWalletFile("invalid nonce length".to_string()));
+        return Err(WalletError::InvalidWalletFile(
+            "invalid nonce length".to_string(),
+        ));
     }
     let nonce = Nonce::from_slice(nonce);
     let secret_bytes = hex::decode(secret_hex)?;
@@ -208,7 +210,9 @@ pub fn wallet_keypair_from_file(
     passphrase: &str,
 ) -> Result<WalletKeypair, WalletError> {
     if wallet.version != 1 {
-        return Err(WalletError::InvalidWalletFile("unsupported version".to_string()));
+        return Err(WalletError::InvalidWalletFile(
+            "unsupported version".to_string(),
+        ));
     }
     if wallet.kdf != "scrypt" || wallet.cipher != "aes-256-gcm" {
         return Err(WalletError::InvalidWalletFile(
@@ -220,7 +224,9 @@ pub fn wallet_keypair_from_file(
     let nonce = hex::decode(&wallet.nonce_hex)?;
     let ciphertext = hex::decode(&wallet.ciphertext_hex)?;
     if nonce.len() != 12 {
-        return Err(WalletError::InvalidWalletFile("invalid nonce length".to_string()));
+        return Err(WalletError::InvalidWalletFile(
+            "invalid nonce length".to_string(),
+        ));
     }
     let n = wallet.kdf_params.n;
     if n == 0 || !n.is_power_of_two() {
@@ -246,10 +252,14 @@ pub fn wallet_keypair_from_file(
     };
 
     if kp.public_key_hex() != wallet.public_key_hex {
-        return Err(WalletError::InvalidWalletFile("public key mismatch".to_string()));
+        return Err(WalletError::InvalidWalletFile(
+            "public key mismatch".to_string(),
+        ));
     }
     if kp.address()? != wallet.address {
-        return Err(WalletError::InvalidWalletFile("address mismatch".to_string()));
+        return Err(WalletError::InvalidWalletFile(
+            "address mismatch".to_string(),
+        ));
     }
 
     Ok(kp)
@@ -298,7 +308,7 @@ mod tests {
     fn wallet_file_encrypt_decrypt() {
         let secret = [3u8; 32];
         let kp = WalletKeypair::from_secret_hex(&hex::encode(secret)).unwrap();
-        let wallet = kp.to_wallet_file("pass") .unwrap();
+        let wallet = kp.to_wallet_file("pass").unwrap();
         let kp2 = wallet_keypair_from_file(&wallet, "pass").unwrap();
         assert_eq!(kp.public_key_hex(), kp2.public_key_hex());
     }
@@ -307,7 +317,7 @@ mod tests {
     fn wallet_file_reencrypt_test() {
         let secret = [4u8; 32];
         let kp = WalletKeypair::from_secret_hex(&hex::encode(secret)).unwrap();
-        let wallet = kp.to_wallet_file("old") .unwrap();
+        let wallet = kp.to_wallet_file("old").unwrap();
         let wallet2 = wallet_file_reencrypt(&wallet, "old", "new").unwrap();
         let kp2 = wallet_keypair_from_file(&wallet2, "new").unwrap();
         assert_eq!(kp.public_key_hex(), kp2.public_key_hex());
@@ -332,7 +342,10 @@ mod tests {
         assert_eq!(wallet.kdf_params.n, 32768);
         assert_eq!(wallet.kdf_params.r, 8);
         assert_eq!(wallet.kdf_params.p, 1);
-        assert_eq!(wallet.kdf_params.salt_hex, "000102030405060708090a0b0c0d0e0f");
+        assert_eq!(
+            wallet.kdf_params.salt_hex,
+            "000102030405060708090a0b0c0d0e0f"
+        );
         assert_eq!(wallet.nonce_hex, "0f0e0d0c0b0a090807060504");
         assert_eq!(
             wallet.ciphertext_hex,

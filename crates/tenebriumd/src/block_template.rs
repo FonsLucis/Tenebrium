@@ -44,7 +44,10 @@ pub fn build_block_template(
     });
 
     txs.push(coinbase.clone());
-    total_size += coinbase.canonical_bytes_v2().map_err(ConsensusError::Utxo)?.len();
+    total_size += coinbase
+        .canonical_bytes_v2()
+        .map_err(ConsensusError::Utxo)?
+        .len();
 
     for entry in entries {
         if total_size + entry.size_bytes > max_block_bytes {
@@ -125,16 +128,8 @@ mod tests {
             lock_time: 0,
         };
 
-        let template = build_block_template(
-            &mempool,
-            coinbase,
-            [0u8; 32],
-            0,
-            0,
-            1,
-            1_000_000,
-        )
-        .unwrap();
+        let template =
+            build_block_template(&mempool, coinbase, [0u8; 32], 0, 0, 1, 1_000_000).unwrap();
 
         assert_eq!(template.block.txs.len(), 2);
     }

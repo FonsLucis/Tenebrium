@@ -3,23 +3,23 @@ mod mempool;
 mod p2p;
 mod utxo_db;
 
+use block_template::build_block_template;
 use clap::{Parser, Subcommand, ValueEnum};
-use serde::{de::SeqAccess, de::Visitor, Deserialize, Serialize};
+use mempool::{Mempool, MempoolConfig};
 use serde::de::Deserializer as _;
+use serde::{de::SeqAccess, de::Visitor, Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::fs;
 use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
-use tenebriumd::LogLevel;
-use block_template::build_block_template;
-use mempool::{Mempool, MempoolConfig};
 use tenebrium_consensus::{check_pow, merkle_root, mine_header};
 use tenebrium_utxo::{
-    map_outpoints_v1_to_v2, OutPoint, ReindexErrorEntry, ReindexErrorKind, ReindexReport,
-    Transaction, UtxoError, InMemoryUtxoSet, UtxoSet,
+    map_outpoints_v1_to_v2, InMemoryUtxoSet, OutPoint, ReindexErrorEntry, ReindexErrorKind,
+    ReindexReport, Transaction, UtxoError, UtxoSet,
 };
+use tenebriumd::LogLevel;
 use utxo_db::{jsonl_reader, KvUtxoStore, UtxoDbError, UtxoEntry, UtxoReader, UtxoStore};
 
 #[derive(Debug, Parser)]
@@ -237,7 +237,6 @@ enum ReindexError {
     Mining(String),
 }
 
-
 fn main() {
     if let Err(err) = run() {
         eprintln!("Error: {err}");
@@ -324,17 +323,17 @@ fn run() -> Result<(), ReindexError> {
                 peers.extend(load_seed_file(&path)?);
             }
             p2p::run_p2p(
-            listen,
-            peers,
-            utxo,
-            no_pow_check,
-            network,
-            data_dir,
-            stats_interval,
-            log_level,
-            log_file,
-            txid_version.as_u8(),
-        )
+                listen,
+                peers,
+                utxo,
+                no_pow_check,
+                network,
+                data_dir,
+                stats_interval,
+                log_level,
+                log_file,
+                txid_version.as_u8(),
+            )
             .map_err(|e| ReindexError::Mining(e.to_string()))
         }
         Some(Command::DbMigrate {
@@ -443,7 +442,11 @@ fn db_migrate(
         }
         meta.insert("schema_version", target.to_le_bytes().to_vec())
             .map_err(ReindexError::from)?;
-        if meta.get("network_id").map_err(ReindexError::from)?.is_none() {
+        if meta
+            .get("network_id")
+            .map_err(ReindexError::from)?
+            .is_none()
+        {
             meta.insert("network_id", b"mainnet".to_vec())
                 .map_err(ReindexError::from)?;
         }
@@ -499,15 +502,16 @@ fn validate_schema(db: &sled::Db) -> Result<(), ReindexError> {
         .map_err(ReindexError::from)?
         .ok_or_else(|| ReindexError::InvalidArgs("missing schema_version".to_string()))?;
     if schema.len() != 4 {
-        return Err(ReindexError::InvalidArgs(
-            format!("invalid schema_version length: {}", schema.len()),
-        ));
+        return Err(ReindexError::InvalidArgs(format!(
+            "invalid schema_version length: {}",
+            schema.len()
+        )));
     }
     let ver = u32::from_le_bytes([schema[0], schema[1], schema[2], schema[3]]);
     if ver != 2 {
-        return Err(ReindexError::InvalidArgs(
-            format!("schema_version mismatch: expected 2, got {ver}"),
-        ));
+        return Err(ReindexError::InvalidArgs(format!(
+            "schema_version mismatch: expected 2, got {ver}"
+        )));
     }
     let network_id = meta.get("network_id").map_err(ReindexError::from)?;
     if let Some(bytes) = network_id {
@@ -665,7 +669,9 @@ fn print_dry_run_summary(db: &sled::Db, json: bool) -> Result<(), ReindexError> 
 
 fn copy_dir_recursive(src: &PathBuf, dst: &PathBuf) -> Result<(), ReindexError> {
     if !src.exists() {
-        return Err(ReindexError::InvalidArgs("source does not exist".to_string()));
+        return Err(ReindexError::InvalidArgs(
+            "source does not exist".to_string(),
+        ));
     }
     for entry in std::fs::read_dir(src).map_err(ReindexError::from)? {
         let entry = entry.map_err(ReindexError::from)?;
@@ -725,7 +731,9 @@ fn mine_block(
                 continue;
             }
             let tx: Transaction = serde_json::from_str(line.trim())?;
-            mempool.add_tx(tx, &set).map_err(|e| ReindexError::Mining(e.to_string()))?;
+            mempool
+                .add_tx(tx, &set)
+                .map_err(|e| ReindexError::Mining(e.to_string()))?;
         }
     }
 
@@ -767,26 +775,19 @@ fn mine_block(
 #[cfg(test)]
 mod tests {
     use super::db_migrate;
-    use super::{db_backup, db_restore};
     use super::submit_block;
     use super::ReindexError;
+    use super::{db_backup, db_restore};
     use crate::p2p;
+    use std::fs;
     use tempfile::tempdir;
     use tenebrium_consensus::Block;
     use tenebrium_utxo::{OutPoint, Transaction, TxIn, TxOut};
-    use std::fs;
 
     #[test]
     fn db_migrate_dry_run_rejects_backup() {
         let temp = tempdir().unwrap();
-        let result = db_migrate(
-            temp.path().to_path_buf(),
-            2,
-            true,
-            true,
-            true,
-            false,
-        );
+        let result = db_migrate(temp.path().to_path_buf(), 2, true, true, true, false);
         assert!(result.is_err());
     }
 
@@ -808,14 +809,7 @@ mod tests {
             db.flush().unwrap();
         }
 
-        let result = db_migrate(
-            temp.path().to_path_buf(),
-            2,
-            true,
-            false,
-            true,
-            false,
-        );
+        let result = db_migrate(temp.path().to_path_buf(), 2, true, false, true, false);
         if let Err(err) = result {
             panic!("db_migrate dry-run failed: {err}");
         }
@@ -827,14 +821,7 @@ mod tests {
         let db = p2p::open_sled(&temp.path().to_path_buf()).unwrap();
         drop(db);
 
-        let result = db_migrate(
-            temp.path().to_path_buf(),
-            2,
-            true,
-            false,
-            true,
-            true,
-        );
+        let result = db_migrate(temp.path().to_path_buf(), 2, true, false, true, true);
         if let Err(err) = result {
             panic!("p2p schema dry-run failed: {err}");
         }
@@ -882,15 +869,7 @@ mod tests {
             }],
             lock_time: 0,
         };
-        let mut block = Block::new(
-            1,
-            [0u8; 32],
-            0,
-            0x207fffff,
-            0,
-            vec![coinbase],
-        )
-        .unwrap();
+        let mut block = Block::new(1, [0u8; 32], 0, 0x207fffff, 0, vec![coinbase]).unwrap();
         block.header.merkle_root = [0u8; 32];
         write_block(&block_path, &block);
 
@@ -925,15 +904,7 @@ mod tests {
             }],
             lock_time: 0,
         };
-        let block = Block::new(
-            1,
-            [0u8; 32],
-            0,
-            0x207fffff,
-            0,
-            vec![coinbase],
-        )
-        .unwrap();
+        let block = Block::new(1, [0u8; 32], 0, 0x207fffff, 0, vec![coinbase]).unwrap();
         write_block(&block_path, &block);
 
         let result = submit_block(block_path, utxo_path, out_path, None, true);
@@ -960,15 +931,7 @@ mod tests {
             }],
             lock_time: 0,
         };
-        let block = Block::new(
-            1,
-            [0u8; 32],
-            0,
-            0x207fffff,
-            0,
-            vec![coinbase],
-        )
-        .unwrap();
+        let block = Block::new(1, [0u8; 32], 0, 0x207fffff, 0, vec![coinbase]).unwrap();
         write_block(&block_path, &block);
 
         let result = submit_block(block_path, utxo_path, out_path, Some(50), true);
@@ -980,8 +943,8 @@ mod tests {
 }
 
 fn decode_hex_32(hex_str: &str) -> Result<[u8; 32], ReindexError> {
-    let bytes = hex::decode(hex_str)
-        .map_err(|e| ReindexError::InvalidArgs(format!("invalid hex: {e}")))?;
+    let bytes =
+        hex::decode(hex_str).map_err(|e| ReindexError::InvalidArgs(format!("invalid hex: {e}")))?;
     if bytes.len() != 32 {
         return Err(ReindexError::InvalidArgs(format!(
             "expected 32-byte hex, got {} bytes",
@@ -1051,7 +1014,9 @@ fn submit_block(
     for (i, tx) in block.txs.iter().enumerate() {
         if i == 0 {
             if !tx.vin.is_empty() {
-                return Err(ReindexError::Mining("coinbase must have no inputs".to_string()));
+                return Err(ReindexError::Mining(
+                    "coinbase must have no inputs".to_string(),
+                ));
             }
             apply_coinbase(tx, &mut utxos)?;
         } else {
@@ -1065,7 +1030,9 @@ fn submit_block(
         let coinbase = &block.txs[0];
         let out_sum = Transaction::sum_outputs(coinbase)?;
         if out_sum > reward.saturating_add(total_fees) {
-            return Err(ReindexError::Mining("coinbase exceeds reward+fees".to_string()));
+            return Err(ReindexError::Mining(
+                "coinbase exceeds reward+fees".to_string(),
+            ));
         }
     }
 
@@ -1078,7 +1045,9 @@ fn apply_coinbase(tx: &Transaction, utxos: &mut InMemoryUtxoSet) -> Result<(), R
     let outpoints = Transaction::make_outpoints(tx)?;
     for (op, txout) in outpoints.into_iter().zip(tx.vout.iter()) {
         if utxos.get(&op).is_some() {
-            return Err(ReindexError::Mining("coinbase output already exists".to_string()));
+            return Err(ReindexError::Mining(
+                "coinbase output already exists".to_string(),
+            ));
         }
         utxos.insert(op, txout.clone());
     }
@@ -1235,38 +1204,38 @@ fn utxo_reindex(
     } else {
         let txs = load_transactions(&db, db_format)?;
         for (idx, tx) in txs.into_iter().enumerate() {
-        if idx < start_index {
-            continue;
-        }
-        if let Err(err) = tx.validate() {
-            let txid_v1 = tx.txid_v1().ok();
-            report_obj.skipped += 1;
-            report_obj.record_error(ReindexErrorEntry::new(
-                ReindexErrorKind::InvalidTx,
-                txid_v1,
-                err.to_string(),
-            ));
-            continue;
-        }
+            if idx < start_index {
+                continue;
+            }
+            if let Err(err) = tx.validate() {
+                let txid_v1 = tx.txid_v1().ok();
+                report_obj.skipped += 1;
+                report_obj.record_error(ReindexErrorEntry::new(
+                    ReindexErrorKind::InvalidTx,
+                    txid_v1,
+                    err.to_string(),
+                ));
+                continue;
+            }
 
-        report_obj.total_inputs += tx.vin.len() as u64;
-        report_obj.total_outputs += tx.vout.len() as u64;
+            report_obj.total_inputs += tx.vin.len() as u64;
+            report_obj.total_outputs += tx.vout.len() as u64;
 
-        let pairs = map_outpoints_v1_to_v2(&tx)?;
-        for (v1, v2) in pairs {
-            mappings.push(MappingEntry { v1, v2 });
-        }
+            let pairs = map_outpoints_v1_to_v2(&tx)?;
+            for (v1, v2) in pairs {
+                mappings.push(MappingEntry { v1, v2 });
+            }
 
-        if let Some(ref path) = checkpoint_path {
-            if idx % CHECKPOINT_INTERVAL == 0 {
-                save_checkpoint(path, idx + 1, &mappings, &report_obj)?;
+            if let Some(ref path) = checkpoint_path {
+                if idx % CHECKPOINT_INTERVAL == 0 {
+                    save_checkpoint(path, idx + 1, &mappings, &report_obj)?;
+                }
             }
         }
-    }
 
-    if verify {
-        verify_no_duplicate_v2(&mappings, &mut report_obj)?;
-    }
+        if verify {
+            verify_no_duplicate_v2(&mappings, &mut report_obj)?;
+        }
 
         if !dry_run {
             write_mappings(&out, out_format, &mappings)?;
@@ -1307,7 +1276,6 @@ struct MappingEntry {
     v1: OutPoint,
     v2: OutPoint,
 }
-
 
 #[derive(Debug, Serialize, Deserialize)]
 struct Checkpoint {
@@ -1424,11 +1392,7 @@ fn build_txid_map_from_db(
     Ok(map)
 }
 
-fn stream_transactions<F>(
-    path: &Path,
-    format: DbFormat,
-    mut f: F,
-) -> Result<(), ReindexError>
+fn stream_transactions<F>(path: &Path, format: DbFormat, mut f: F) -> Result<(), ReindexError>
 where
     F: FnMut(usize, Transaction) -> Result<(), ReindexError>,
 {
@@ -1484,7 +1448,6 @@ where
         Ok(())
     }
 }
-
 
 fn process_utxo_entries(
     utxo_path: &Path,

@@ -1,4 +1,6 @@
+use hex::encode as hex_encode;
 use serde::{Deserialize, Serialize};
+use sled::Db;
 use std::collections::{HashMap, HashSet};
 use std::fs::OpenOptions;
 use std::io::{Read, Write};
@@ -7,9 +9,9 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
-use hex::encode as hex_encode;
-use sled::Db;
-use tenebrium_consensus::{check_pow, header_hash, merkle_root, Block, BlockHeader, ConsensusError};
+use tenebrium_consensus::{
+    check_pow, header_hash, merkle_root, Block, BlockHeader, ConsensusError,
+};
 use tenebrium_utxo::{ApplyReceipt, InMemoryUtxoSet, Transaction, TxOut, UtxoError, UtxoSet};
 
 use crate::mempool::{Mempool, MempoolConfig, MempoolError};
@@ -51,10 +53,15 @@ pub enum P2pMessage {
         txid_version: Option<u8>,
     },
     Addr(Vec<String>),
-    Inv { txids: Vec<[u8; 32]>, blocks: Vec<[u8; 32]> },
+    Inv {
+        txids: Vec<[u8; 32]>,
+        blocks: Vec<[u8; 32]>,
+    },
     GetTx(Vec<[u8; 32]>),
     GetBlock(Vec<[u8; 32]>),
-    GetHeaders { locator: Vec<[u8; 32]> },
+    GetHeaders {
+        locator: Vec<[u8; 32]>,
+    },
     Headers(Vec<BlockHeader>),
     Ping,
     Pong,
@@ -95,8 +102,8 @@ const GENESIS_TIME: u32 = 1_769_936_400;
 const GENESIS_BITS: u32 = 0x207fffff;
 const GENESIS_NONCE: u32 = 2;
 const GENESIS_MERKLE_ROOT: [u8; 32] = [
-    169, 121, 2, 123, 39, 241, 216, 194, 36, 201, 186, 237, 157, 93, 25, 228,
-    155, 68, 174, 228, 3, 8, 168, 36, 245, 208, 58, 173, 18, 205, 179, 58,
+    169, 121, 2, 123, 39, 241, 216, 194, 36, 201, 186, 237, 157, 93, 25, 228, 155, 68, 174, 228, 3,
+    8, 168, 36, 245, 208, 58, 173, 18, 205, 179, 58,
 ];
 
 pub fn run_p2p(
@@ -120,7 +127,11 @@ pub fn run_p2p(
         None => None,
     };
 
-    let utxos = Arc::new(Mutex::new(load_utxos(utxo_path, data_dir.clone(), db.clone())?));
+    let utxos = Arc::new(Mutex::new(load_utxos(
+        utxo_path,
+        data_dir.clone(),
+        db.clone(),
+    )?));
     let mempool = Arc::new(Mutex::new(Mempool::new(MempoolConfig::default())));
     let peers = Arc::new(Mutex::new(PeerManager::new(peers)));
     let blocks = Arc::new(Mutex::new(BlockStore::default()));
@@ -191,7 +202,10 @@ pub fn run_p2p(
     for incoming in listener.incoming() {
         match incoming {
             Ok(stream) => {
-                let peer = stream.peer_addr().map(|p| p.to_string()).unwrap_or_default();
+                let peer = stream
+                    .peer_addr()
+                    .map(|p| p.to_string())
+                    .unwrap_or_default();
                 let can_accept = {
                     let mut guard = peers
                         .lock()
@@ -311,14 +325,14 @@ fn handle_connection(
                     }
                 };
                 if peer_txid_version != TXID_VERSION_V1 && peer_txid_version != TXID_VERSION_V2 {
-                    return Err(P2pError::InvalidBlock(
-                        format!("unsupported txid version {peer_txid_version}"),
-                    ));
+                    return Err(P2pError::InvalidBlock(format!(
+                        "unsupported txid version {peer_txid_version}"
+                    )));
                 }
                 if peer_txid_version != local_txid_version {
-                    return Err(P2pError::InvalidBlock(
-                        format!("txid version mismatch (expected {local_txid_version})"),
-                    ));
+                    return Err(P2pError::InvalidBlock(format!(
+                        "txid version mismatch (expected {local_txid_version})"
+                    )));
                 }
                 if network != network_id {
                     return Err(P2pError::InvalidBlock("network mismatch".to_string()));
@@ -397,7 +411,10 @@ fn handle_connection(
                     }
                 }
             }
-            P2pMessage::Inv { txids, blocks: block_hashes } => {
+            P2pMessage::Inv {
+                txids,
+                blocks: block_hashes,
+            } => {
                 let mut want_tx = Vec::new();
                 let mut want_blocks = Vec::new();
 
@@ -604,7 +621,9 @@ struct Seen {
 }
 
 fn seen_tx(seen: &Arc<Mutex<Seen>>, txid: &[u8; 32]) -> Result<bool, P2pError> {
-    let mut guard = seen.lock().map_err(|_| P2pError::InvalidBlock("seen lock".to_string()))?;
+    let mut guard = seen
+        .lock()
+        .map_err(|_| P2pError::InvalidBlock("seen lock".to_string()))?;
     if guard.tx.contains(txid) {
         return Ok(true);
     }
@@ -613,7 +632,9 @@ fn seen_tx(seen: &Arc<Mutex<Seen>>, txid: &[u8; 32]) -> Result<bool, P2pError> {
 }
 
 fn seen_block(seen: &Arc<Mutex<Seen>>, hash: &[u8; 32]) -> Result<bool, P2pError> {
-    let mut guard = seen.lock().map_err(|_| P2pError::InvalidBlock("seen lock".to_string()))?;
+    let mut guard = seen
+        .lock()
+        .map_err(|_| P2pError::InvalidBlock("seen lock".to_string()))?;
     if guard.block.contains(hash) {
         return Ok(true);
     }
@@ -712,8 +733,10 @@ impl PeerManager {
 
     fn ban(&mut self, addr: &str) {
         self.peers.remove(addr);
-        self.banned
-            .insert(addr.to_string(), Instant::now() + Duration::from_secs(BAN_DURATION_SECS));
+        self.banned.insert(
+            addr.to_string(),
+            Instant::now() + Duration::from_secs(BAN_DURATION_SECS),
+        );
     }
 
     fn mark_seen(&mut self, _addr: &str) {}
@@ -726,12 +749,16 @@ impl PeerManager {
 
 fn validate_message(msg: &P2pMessage) -> Result<(), P2pError> {
     match msg {
-        P2pMessage::Hello { network, node_id, .. } => {
+        P2pMessage::Hello {
+            network, node_id, ..
+        } => {
             if node_id.is_empty() || node_id.len() > MAX_NODE_ID_LEN {
                 return Err(P2pError::InvalidBlock("invalid node_id length".to_string()));
             }
             if network.is_empty() || network.len() > MAX_NETWORK_ID_LEN {
-                return Err(P2pError::InvalidBlock("invalid network id length".to_string()));
+                return Err(P2pError::InvalidBlock(
+                    "invalid network id length".to_string(),
+                ));
             }
         }
         P2pMessage::Addr(addrs) => {
@@ -751,7 +778,9 @@ fn validate_message(msg: &P2pMessage) -> Result<(), P2pError> {
         }
         P2pMessage::GetBlock(hashes) => {
             if hashes.len() > MAX_GET {
-                return Err(P2pError::InvalidBlock("getblock list too large".to_string()));
+                return Err(P2pError::InvalidBlock(
+                    "getblock list too large".to_string(),
+                ));
             }
         }
         P2pMessage::GetHeaders { locator } => {
@@ -796,7 +825,10 @@ impl RateLimiter {
 }
 
 fn should_ban(err: &P2pError) -> bool {
-    matches!(err, P2pError::InvalidLength | P2pError::InvalidBlock(_) | P2pError::Json(_))
+    matches!(
+        err,
+        P2pError::InvalidLength | P2pError::InvalidBlock(_) | P2pError::Json(_)
+    )
 }
 
 #[derive(Clone)]
@@ -1043,9 +1075,8 @@ fn load_utxos(
             for item in tree.iter() {
                 let (k, v) = item?;
                 let outpoint = decode_outpoint(&k)?;
-                let txout = decode_txout(&v)?.ok_or_else(|| {
-                    UtxoDbError::InvalidData("missing txout in sled".to_string())
-                })?;
+                let txout = decode_txout(&v)?
+                    .ok_or_else(|| UtxoDbError::InvalidData("missing txout in sled".to_string()))?;
                 set.insert(outpoint, txout);
             }
             if let Some(expected) = load_utxo_count(&db)? {
@@ -1074,9 +1105,12 @@ fn load_utxo_count(db: &Db) -> Result<Option<u64>, P2pError> {
     let meta = db.open_tree("meta")?;
     if let Some(value) = meta.get("utxo_count")? {
         if value.len() == 8 {
-            let count = u64::from_le_bytes(value.as_ref().try_into().map_err(|_| {
-                P2pError::InvalidBlock("invalid utxo_count bytes".to_string())
-            })?);
+            let count = u64::from_le_bytes(
+                value
+                    .as_ref()
+                    .try_into()
+                    .map_err(|_| P2pError::InvalidBlock("invalid utxo_count bytes".to_string()))?,
+            );
             return Ok(Some(count));
         }
     }
@@ -1091,9 +1125,11 @@ fn load_tip_meta(db: &Db) -> Result<Option<([u8; 32], u32)>, P2pError> {
         (Some(h), Some(he)) if h.len() == 32 && he.len() == 4 => {
             let mut out = [0u8; 32];
             out.copy_from_slice(&h);
-            let height = u32::from_le_bytes(he.as_ref().try_into().map_err(|_| {
-                P2pError::InvalidBlock("invalid tip height bytes".to_string())
-            })?);
+            let height = u32::from_le_bytes(
+                he.as_ref()
+                    .try_into()
+                    .map_err(|_| P2pError::InvalidBlock("invalid tip height bytes".to_string()))?,
+            );
             Ok(Some((out, height)))
         }
         _ => Ok(None),
@@ -1104,9 +1140,10 @@ fn ensure_db_schema(db: &Db) -> Result<(), P2pError> {
     let meta = db.open_tree("meta")?;
     if let Some(val) = meta.get("schema_version")? {
         if val.len() == 4 {
-            let ver = u32::from_le_bytes(val.as_ref().try_into().map_err(|_| {
-                P2pError::InvalidBlock("invalid schema_version bytes".to_string())
-            })?);
+            let ver =
+                u32::from_le_bytes(val.as_ref().try_into().map_err(|_| {
+                    P2pError::InvalidBlock("invalid schema_version bytes".to_string())
+                })?);
             if ver != DB_SCHEMA_VERSION {
                 return Err(P2pError::InvalidBlock(
                     "unsupported db schema version".to_string(),
@@ -1169,7 +1206,9 @@ fn apply_block_with_undo(
     let coinbase = &block.txs[0];
     let out_sum = Transaction::sum_outputs(coinbase)?;
     if out_sum > subsidy.saturating_add(total_fees) {
-        return Err(P2pError::InvalidBlock("coinbase exceeds subsidy+fees".to_string()));
+        return Err(P2pError::InvalidBlock(
+            "coinbase exceeds subsidy+fees".to_string(),
+        ));
     }
     Ok(receipts)
 }
@@ -1182,10 +1221,13 @@ fn apply_coinbase(tx: &Transaction, utxos: &mut InMemoryUtxoSet) -> Result<Apply
         if utxos.get(&op).is_some() {
             return Err(P2pError::InvalidBlock("coinbase output exists".to_string()));
         }
-        utxos.insert(op.clone(), TxOut {
-            value: txout.value,
-            script_pubkey: txout.script_pubkey.clone(),
-        });
+        utxos.insert(
+            op.clone(),
+            TxOut {
+                value: txout.value,
+                script_pubkey: txout.script_pubkey.clone(),
+            },
+        );
         inserted.push(op);
     }
     Ok(ApplyReceipt {
@@ -1220,11 +1262,7 @@ fn persist_block(
     Ok(())
 }
 
-fn persist_utxos(
-    dir: &PathBuf,
-    utxos: &InMemoryUtxoSet,
-    db: Option<Db>,
-) -> Result<(), P2pError> {
+fn persist_utxos(dir: &PathBuf, utxos: &InMemoryUtxoSet, db: Option<Db>) -> Result<(), P2pError> {
     let file = dir.join("utxo.jsonl");
     let tmp = dir.join("utxo.jsonl.tmp");
     let mut writer = std::io::BufWriter::new(std::fs::File::create(&tmp)?);
@@ -1336,9 +1374,11 @@ impl ChainState {
             let (k, v) = item?;
             let hash = decode_hash(&k)?;
             if v.len() == 4 {
-                let h = u32::from_le_bytes(v.as_ref().try_into().map_err(|_| {
-                    P2pError::InvalidBlock("invalid height bytes".to_string())
-                })?);
+                let h = u32::from_le_bytes(
+                    v.as_ref()
+                        .try_into()
+                        .map_err(|_| P2pError::InvalidBlock("invalid height bytes".to_string()))?,
+                );
                 heights.insert(hash, h);
             }
         }
@@ -1346,9 +1386,11 @@ impl ChainState {
             let (k, v) = item?;
             let hash = decode_hash(&k)?;
             if v.len() == 16 {
-                let w = u128::from_le_bytes(v.as_ref().try_into().map_err(|_| {
-                    P2pError::InvalidBlock("invalid work bytes".to_string())
-                })?);
+                let w = u128::from_le_bytes(
+                    v.as_ref()
+                        .try_into()
+                        .map_err(|_| P2pError::InvalidBlock("invalid work bytes".to_string()))?,
+                );
                 work.insert(hash, w);
             }
         }
@@ -1471,11 +1513,7 @@ impl ChainState {
         out
     }
 
-    fn expected_bits(
-        &self,
-        prev: Option<&BlockHeader>,
-        height: u32,
-    ) -> Result<u32, P2pError> {
+    fn expected_bits(&self, prev: Option<&BlockHeader>, height: u32) -> Result<u32, P2pError> {
         let Some(prev) = prev else {
             return Ok(INITIAL_BITS);
         };
@@ -1499,9 +1537,8 @@ impl ChainState {
         let expected_time = TARGET_BLOCK_TIME_SECS.saturating_mul(DIFFICULTY_WINDOW);
 
         let prev_target = bits_to_target_u128(prev.bits)?;
-        let mut new_target = prev_target
-            .saturating_mul(actual_time as u128)
-            / (expected_time.max(1) as u128);
+        let mut new_target =
+            prev_target.saturating_mul(actual_time as u128) / (expected_time.max(1) as u128);
 
         let max_target = bits_to_target_u128(prev.bits)?; // clamp to previous for now
         if new_target > max_target {
@@ -1612,8 +1649,12 @@ fn common_ancestor(
     mut a: [u8; 32],
     mut b: [u8; 32],
 ) -> Result<[u8; 32], P2pError> {
-    let mut ha = chain.height_of(&a).ok_or_else(|| P2pError::InvalidBlock("missing height".to_string()))?;
-    let mut hb = chain.height_of(&b).ok_or_else(|| P2pError::InvalidBlock("missing height".to_string()))?;
+    let mut ha = chain
+        .height_of(&a)
+        .ok_or_else(|| P2pError::InvalidBlock("missing height".to_string()))?;
+    let mut hb = chain
+        .height_of(&b)
+        .ok_or_else(|| P2pError::InvalidBlock("missing height".to_string()))?;
     while ha > hb {
         a = chain
             .header_of(&a)
@@ -1732,7 +1773,9 @@ fn validate_header_rules(
             return Err(P2pError::InvalidBlock("time too old".to_string()));
         }
         if header.bits != expected_bits {
-            return Err(P2pError::InvalidBlock("unexpected difficulty bits".to_string()));
+            return Err(P2pError::InvalidBlock(
+                "unexpected difficulty bits".to_string(),
+            ));
         }
     }
 
@@ -1869,12 +1912,12 @@ mod reorg_tests {
         chain.work.insert(hash_b1, 3);
         chain.tip = hash_b1;
 
-        let block_a1 = Block::new(1, genesis, 1, INITIAL_BITS, 0, vec![make_coinbase(50, 1)])
-            .unwrap();
-        let block_a2 = Block::new(1, hash_a1, 2, INITIAL_BITS, 0, vec![make_coinbase(50, 2)])
-            .unwrap();
-        let block_b1 = Block::new(1, genesis, 1, INITIAL_BITS, 0, vec![make_coinbase(50, 3)])
-            .unwrap();
+        let block_a1 =
+            Block::new(1, genesis, 1, INITIAL_BITS, 0, vec![make_coinbase(50, 1)]).unwrap();
+        let block_a2 =
+            Block::new(1, hash_a1, 2, INITIAL_BITS, 0, vec![make_coinbase(50, 2)]).unwrap();
+        let block_b1 =
+            Block::new(1, genesis, 1, INITIAL_BITS, 0, vec![make_coinbase(50, 3)]).unwrap();
 
         let mut blocks = BlockStore::default();
         blocks.insert(hash_a1, block_a1.clone());
@@ -1889,7 +1932,15 @@ mod reorg_tests {
         applied.undo.insert(hash_a2, receipts_a2);
 
         let mut evicted = Vec::new();
-        reorg_to_tip(&mut applied, &chain, &blocks, &mut utxos, true, &mut evicted).unwrap();
+        reorg_to_tip(
+            &mut applied,
+            &chain,
+            &blocks,
+            &mut utxos,
+            true,
+            &mut evicted,
+        )
+        .unwrap();
 
         assert_eq!(applied.tip, hash_b1);
 

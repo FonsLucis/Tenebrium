@@ -6,14 +6,14 @@ use clap::ValueEnum;
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
 pub enum LogLevel {
-	Error,
-	Warn,
-	Info,
-	Debug,
+    Error,
+    Warn,
+    Info,
+    Debug,
 }
 
 impl LogLevel {
-	pub fn allows(self, level: LogLevel) -> bool {
-		(level as u8) <= (self as u8)
-	}
+    pub fn allows(self, level: LogLevel) -> bool {
+        (level as u8) <= (self as u8)
+    }
 }

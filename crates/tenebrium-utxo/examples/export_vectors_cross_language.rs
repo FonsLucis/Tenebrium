@@ -53,9 +53,5 @@ fn main() {
     let pretty = serde_json::to_string_pretty(&outputs).expect("failed to serialize output");
     fs::write(out_path, pretty).expect("failed to write vectors_cross_language.json");
 
-    println!(
-        "Wrote {} vectors -> {}",
-        outputs.len(),
-        out_path.display()
-    );
+    println!("Wrote {} vectors -> {}", outputs.len(), out_path.display());
 }

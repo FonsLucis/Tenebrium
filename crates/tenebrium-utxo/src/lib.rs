@@ -8,9 +8,7 @@ use sha2::{Digest, Sha256};
 use std::collections::{HashMap, HashSet};
 
 mod reindex;
-pub use reindex::{
-    map_outpoints_v1_to_v2, ReindexErrorEntry, ReindexErrorKind, ReindexReport,
-};
+pub use reindex::{map_outpoints_v1_to_v2, ReindexErrorEntry, ReindexErrorKind, ReindexReport};
 
 /// Maximum allowed script size in bytes (DoS mitigation)
 pub const MAX_SCRIPT_SIZE: usize = 10_000;

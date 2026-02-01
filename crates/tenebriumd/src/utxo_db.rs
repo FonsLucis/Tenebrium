@@ -129,28 +129,41 @@ pub fn decode_txout(bytes: &[u8]) -> Result<Option<TxOut>, UtxoDbError> {
     if bytes.len() < 16 {
         return Err(UtxoDbError::InvalidData("txout too short".to_string()));
     }
-    let value = u64::from_le_bytes(bytes[0..8].try_into().map_err(|_| {
-        UtxoDbError::InvalidData("invalid value bytes".to_string())
-    })?);
-    let len = u64::from_le_bytes(bytes[8..16].try_into().map_err(|_| {
-        UtxoDbError::InvalidData("invalid script length bytes".to_string())
-    })?) as usize;
+    let value = u64::from_le_bytes(
+        bytes[0..8]
+            .try_into()
+            .map_err(|_| UtxoDbError::InvalidData("invalid value bytes".to_string()))?,
+    );
+    let len = u64::from_le_bytes(
+        bytes[8..16]
+            .try_into()
+            .map_err(|_| UtxoDbError::InvalidData("invalid script length bytes".to_string()))?,
+    ) as usize;
     if bytes.len() < 16 + len {
-        return Err(UtxoDbError::InvalidData("script length exceeds buffer".to_string()));
+        return Err(UtxoDbError::InvalidData(
+            "script length exceeds buffer".to_string(),
+        ));
     }
     let script_pubkey = bytes[16..16 + len].to_vec();
-    Ok(Some(TxOut { value, script_pubkey }))
+    Ok(Some(TxOut {
+        value,
+        script_pubkey,
+    }))
 }
 
 pub fn decode_outpoint(bytes: &[u8]) -> Result<OutPoint, UtxoDbError> {
     if bytes.len() != 36 {
-        return Err(UtxoDbError::InvalidData("outpoint length mismatch".to_string()));
+        return Err(UtxoDbError::InvalidData(
+            "outpoint length mismatch".to_string(),
+        ));
     }
     let mut txid = [0u8; 32];
     txid.copy_from_slice(&bytes[0..32]);
-    let vout = u32::from_le_bytes(bytes[32..36].try_into().map_err(|_| {
-        UtxoDbError::InvalidData("invalid vout bytes".to_string())
-    })?);
+    let vout = u32::from_le_bytes(
+        bytes[32..36]
+            .try_into()
+            .map_err(|_| UtxoDbError::InvalidData("invalid vout bytes".to_string()))?,
+    );
     Ok(OutPoint { txid, vout })
 }
 

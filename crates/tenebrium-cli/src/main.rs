@@ -1,13 +1,13 @@
 use clap::{Parser, Subcommand};
+use rand::seq::SliceRandom;
+use rand::thread_rng;
 use serde::{Deserialize, Serialize};
 use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
-use rand::seq::SliceRandom;
-use rand::thread_rng;
 use tenebrium_core::{
-    address_from_pubkey_hex, generate_keypair, sign_message_hex, verify_message_hex, WalletError,
-    wallet_file_from_secret, wallet_file_reencrypt, wallet_keypair_from_file, WalletFile,
-    WalletKeypair,
+    address_from_pubkey_hex, generate_keypair, sign_message_hex, verify_message_hex,
+    wallet_file_from_secret, wallet_file_reencrypt, wallet_keypair_from_file, WalletError,
+    WalletFile, WalletKeypair,
 };
 use tenebrium_utxo::{tx_sighash_v2, OutPoint, Transaction, TxIn, TxOut, UtxoError};
 
@@ -631,15 +631,13 @@ fn select_utxos(
 
         let calc_fee = match fee_rate {
             Some(rate) => {
-                let fee_with_change = rate.saturating_mul(
-                    estimate_tx_size(
-                        selected.len(),
-                        true,
-                        script_sig_len,
-                        to_script.len(),
-                        change_script.len(),
-                    ) as u64,
-                );
+                let fee_with_change = rate.saturating_mul(estimate_tx_size(
+                    selected.len(),
+                    true,
+                    script_sig_len,
+                    to_script.len(),
+                    change_script.len(),
+                ) as u64);
                 let target_with_change = amount
                     .checked_add(fee_with_change)
                     .ok_or_else(|| CliError::InvalidArgs("amount+fee overflow".to_string()))?;
@@ -648,15 +646,13 @@ fn select_utxos(
                     if change_value > 0 {
                         fee_with_change
                     } else {
-                        let fee_no_change = rate.saturating_mul(
-                            estimate_tx_size(
-                                selected.len(),
-                                false,
-                                script_sig_len,
-                                to_script.len(),
-                                change_script.len(),
-                            ) as u64,
-                        );
+                        let fee_no_change = rate.saturating_mul(estimate_tx_size(
+                            selected.len(),
+                            false,
+                            script_sig_len,
+                            to_script.len(),
+                            change_script.len(),
+                        ) as u64);
                         fee_no_change
                     }
                 } else {
@@ -687,12 +683,20 @@ fn best_fit_single(
     let mut best: Option<(UtxoEntry, u64, u64)> = None; // (entry, fee, excess)
     for entry in pool {
         let sum = entry.txout.value;
-        let fee_with_change = rate.saturating_mul(
-            estimate_tx_size(1, true, script_sig_len, to_script_len, change_script_len) as u64,
-        );
-        let fee_no_change = rate.saturating_mul(
-            estimate_tx_size(1, false, script_sig_len, to_script_len, change_script_len) as u64,
-        );
+        let fee_with_change = rate.saturating_mul(estimate_tx_size(
+            1,
+            true,
+            script_sig_len,
+            to_script_len,
+            change_script_len,
+        ) as u64);
+        let fee_no_change = rate.saturating_mul(estimate_tx_size(
+            1,
+            false,
+            script_sig_len,
+            to_script_len,
+            change_script_len,
+        ) as u64);
 
         let target_with_change = amount.saturating_add(fee_with_change);
         let target_no_change = amount.saturating_add(fee_no_change);
