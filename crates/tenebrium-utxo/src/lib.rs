@@ -7,6 +7,11 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::{HashMap, HashSet};
 
+mod reindex;
+pub use reindex::{
+    map_outpoints_v1_to_v2, ReindexErrorEntry, ReindexErrorKind, ReindexReport,
+};
+
 /// Maximum allowed script size in bytes (DoS mitigation)
 pub const MAX_SCRIPT_SIZE: usize = 10_000;
 /// Maximum allowed number of inputs or outputs in a transaction (temporary cap)
@@ -234,6 +239,21 @@ impl Transaction {
     }
 }
 
+/// Compute a signing hash (sighash) over canonical bytes v2 with all script_sig cleared.
+/// This is a simple baseline scheme for v0.1 tooling.
+pub fn tx_sighash_v2(tx: &Transaction) -> Result<[u8; 32], UtxoError> {
+    let mut tmp = tx.clone();
+    for vin in &mut tmp.vin {
+        vin.script_sig.clear();
+    }
+    let bytes = tmp.canonical_bytes_v2()?;
+    let first = Sha256::digest(&bytes);
+    let second = Sha256::digest(&first);
+    let mut out = [0u8; 32];
+    out.copy_from_slice(&second);
+    Ok(out)
+}
+
 /// Receipt describing changes from an apply_tx (for rollback)
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ApplyReceipt {
@@ -265,6 +285,13 @@ impl InMemoryUtxoSet {
         Self {
             map: HashMap::new(),
         }
+    }
+
+    pub fn entries(&self) -> Vec<(OutPoint, TxOut)> {
+        self.map
+            .iter()
+            .map(|(op, txout)| (op.clone(), txout.clone()))
+            .collect()
     }
 }
 

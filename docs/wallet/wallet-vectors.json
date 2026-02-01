@@ -1,0 +1,15 @@
+﻿{
+  "version": 1,
+  "kdf": "scrypt",
+  "kdf_params": {
+    "salt_hex": "000102030405060708090a0b0c0d0e0f",
+    "n": 32768,
+    "r": 8,
+    "p": 1
+  },
+  "cipher": "aes-256-gcm",
+  "nonce_hex": "0f0e0d0c0b0a090807060504",
+  "ciphertext_hex": "3290608a78fc45997c4643fe701910c441417ba80db5770c43a245df0203b3dac1218a6869936934da79f5e93c4e3ee1",
+  "public_key_hex": "03a107bff3ce10be1d70dd18e74bc09967e4d6309ba50d5f1ddc8664125531b8",
+  "address": "tn12er44f65vdr5cq59mawm7272ku76v5f43qu7ndm5sxew4vg8wzxqdjnd7h"
+}

@@ -1,0 +1,45 @@
+[package]
+name = "tenebrium-fuzz"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+serde_json = "1.0"
+tenebrium-utxo = { path = "../crates/tenebrium-utxo" }
+tenebrium-consensus = { path = "../crates/tenebrium-consensus" }
+tenebriumd = { path = "../crates/tenebriumd" }
+
+[profile.release]
+debug = 1
+
+[[bin]]
+name = "tx_json"
+path = "fuzz_targets/tx_json.rs"
+
+[[bin]]
+name = "block_json"
+path = "fuzz_targets/block_json.rs"
+
+[[bin]]
+name = "header_json"
+path = "fuzz_targets/header_json.rs"
+
+[[bin]]
+name = "tx_json_strict"
+path = "fuzz_targets/tx_json_strict.rs"
+
+[[bin]]
+name = "p2p_message_json"
+path = "fuzz_targets/p2p_message_json.rs"
+
+[[bin]]
+name = "utxo_kv"
+path = "fuzz_targets/utxo_kv.rs"
+
+[workspace]
+members = ["."]

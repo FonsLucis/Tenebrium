@@ -1,0 +1,4 @@
+# Tenebrium seed nodes (host:port)
+# Example:
+# 203.0.113.10:8333
+# 203.0.113.11:8333

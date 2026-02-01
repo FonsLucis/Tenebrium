@@ -69,6 +69,18 @@
   3. 문제 없을 경우, 업데이트 노드는 새로운 블록 생성에 `txid_v2`를 사용하며 네트워크 프로토콜(메시지 포맷)에 txid version 정보를 포함하도록 점진적 변경을 권장합니다.
 - 기존 디스크형 UTXO 인덱스 재인덱싱 도구 제공 필요: v1 기반 인덱스를 v2 키로 재인덱스 하는 툴.
 
+## UTXO 재인덱싱 도구
+- CLI: `tenebriumd utxo-reindex` (구현: `crates/tenebriumd/src/main.rs`)
+- 설계 문서: `docs/rfcs/0002-utxo-reindex.md`
+- 예시:
+```
+tenebriumd utxo-reindex \
+  --db ./data/utxo_v1 \
+  --out ./data/utxo_v2 \
+  --report ./data/reindex_report.json \
+  --verify
+```
+
 ---
 
 ## 테스트 및 검증
@@ -95,8 +107,8 @@
 
 ## TODO(권장 작업 목록)
 1. RFC 스타일의 공식 스펙(이 문서를 RFC 포맷으로 확장 및 저장소 최상위 `docs/`에 추가). ✅ (초안 작성 완료)
-2. Cross-language test vectors 파일 생성 (JSON + hex bytes + expected txid). 🔁
-3. 재인덱싱 도구(`utxo-reindex`) 제작 (v1->v2 변환) 및 문서화. 🛠️
+2. Cross-language test vectors 파일 생성 (JSON + hex bytes + expected txid). ✅
+3. 재인덱싱 도구(`utxo-reindex`) 제작 (v1->v2 변환) 및 문서화. ✅
 4. 네트워크 레벨의 txid 버전 표시 및 호환성 메시지 설계. 📡
 5. 성능 벤치마크(직렬화+txid 해시) 및 필요시 바이너리 포맷 개선. ⚙️
 
