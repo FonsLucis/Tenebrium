@@ -1,0 +1,55 @@
+name: Create RFC Pull Request
+
+on:
+  workflow_dispatch:
+    inputs:
+      reviewers:
+        description: 'Comma-separated reviewers (optional)'
+        required: false
+      draft:
+        description: 'Create PR as draft (true/false)'
+        required: false
+        default: 'true'
+
+jobs:
+  create-rfc-pr:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Create branch with RFC
+        id: make_branch
+        run: |
+          RFC_PATH="docs/rfcs/0001-canonical-txid-v2.md"
+          BRANCH="rfc/canonical-txid-v2-${{ github.run_id }}"
+          echo "branch=$BRANCH" >> $GITHUB_OUTPUT
+          git checkout -b "$BRANCH"
+          git add "$RFC_PATH" || true
+          # commit RFC or make an empty commit to ensure branch exists
+          git commit -m "docs(rfc): add RFC 0001 — Canonical TXID v2" || git commit --allow-empty -m "chore(rfc): ensure branch with RFC"
+          git push -u origin "$BRANCH"
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: ${{ steps.make_branch.outputs.branch }}
+          base: main
+          title: "RFC 0001 — Canonical TXID v2"
+          body: |-
+            Draft RFC: Canonical TXID v2
+
+            See: docs/rfcs/0001-canonical-txid-v2.md
+
+            Suggested reviewers: ${{ github.event.inputs.reviewers || 'maintainers' }}
+          labels: "rfc"
+          draft: ${{ github.event.inputs.draft }}
+          reviewers: ${{ github.event.inputs.reviewers }}

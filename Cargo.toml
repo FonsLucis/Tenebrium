@@ -1,0 +1,9 @@
+[workspace]
+members = [
+    "crates/tenebrium-core",
+    "crates/tenebrium-utxo",
+    "crates/tenebrium-consensus",
+    "crates/tenebriumd",
+    "crates/tenebrium-cli",
+]
+resolver = "2"
