@@ -10,3 +10,7 @@ How to run:
 Notes:
 - The script reads `crates/tenebrium-utxo/test_vectors/vectors.json` (UTF-8, BOM tolerated).
 - No external packages required (only Python stdlib).
+
+Export cross-language vectors (Rust):
+- From repository root:
+  cargo run -p tenebrium-utxo --example export_vectors_cross_language

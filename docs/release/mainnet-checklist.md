@@ -13,6 +13,7 @@
   - 파일 예: `docs/rfcs/0001-canonical-txid-v2.md` 스타일
 - [ ] 컨센서스 파라미터 고정 (`crates/tenebrium-consensus`)
 - [ ] 네트워크 규칙(포트, 메시지, 시드 노드) 문서화
+  - 관련 문서: `docs/consensus/params.md`, `docs/protocol/p2p.md`
 
 ## 2. 코드 품질·검증
 - [ ] 포맷/테스트 통과
@@ -23,11 +24,13 @@
   - `python tools/verify_vectors.py` (또는 CI와 동일한 비교 로직)
   - 벡터가 변경되면 PR 생성 규칙을 준수(자동 PR 절차는 `.github/workflows/ci.yml` 참조)
 - [ ] 추가: 통합 테스트, 퍼즈(특히 consensus/serialization 경계)
+  - 퍼징 가이드: `docs/security/fuzzing.md`
 
 ## 3. 보안·감사
 - [ ] 외부 보안 감사(컨센서스, 네트워크, 암호화 우선)
 - [ ] 버그바운티 프로세스 및 긴급 패치 플레이북
 - [ ] 종속성 스캔(취약점, 라이선스)
+  - 내부 체크리스트: `docs/security/audit-checklist.md`
 
 ## 4. 테스트넷 → 스테이지 → 메인넷 절차
 - [ ] Private devnet 시작(설정 템플릿 제공)
@@ -39,6 +42,7 @@
 - [ ] 서명된 바이너리, 체크섬, 빌드 스크립트(정확한 toolchain 지정)
 - [ ] 재현 가능한 빌드 문서(환경, rustup toolchain, OS 이미지)
 - [ ] 릴리스 노트 템플릿(변경점, 마이그레이션 가이드, 알려진 이슈)
+  - 릴리스 문서: `docs/release/release-process.md`, `docs/release/checksums.md`
 
 ## 6. 운영·모니터링
 - [ ] 노드 헬스 체크(블록 생성/동기화 상태, 메모리, CPU)

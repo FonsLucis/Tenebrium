@@ -54,11 +54,11 @@ jobs:
       - name: Generate vectors (Rust example)
         run: |
           python - << 'PY'
-import subprocess, sys, os
-out_path = os.path.join('crates','tenebrium-utxo','test_vectors','generated_vectors.json')
-with open(out_path, 'wb') as f:
-    subprocess.check_call(['cargo','run','-p','tenebrium-utxo','--example','generate_vectors'], stdout=f)
-PY
+          import subprocess, sys, os
+          out_path = os.path.join('crates','tenebrium-utxo','test_vectors','generated_vectors.json')
+          with open(out_path, 'wb') as f:
+            subprocess.check_call(['cargo','run','-p','tenebrium-utxo','--example','generate_vectors'], stdout=f)
+          PY
 
       - id: check_vectors
         name: Compare generated vs committed vectors
@@ -66,29 +66,29 @@ PY
         run: |
           # compare JSON files in a stable way and set outputs 'different', 'changed_count' and 'sample_changed'
           python - << 'PY' > /tmp/vector_diff.txt
-import json
-from pathlib import Path
+          import json
+          from pathlib import Path
 
-a = json.load(open('crates/tenebrium-utxo/test_vectors/vectors.json'))
-b = json.load(open('crates/tenebrium-utxo/test_vectors/generated_vectors.json'))
+          a = json.load(open('crates/tenebrium-utxo/test_vectors/vectors.json'))
+          b = json.load(open('crates/tenebrium-utxo/test_vectors/generated_vectors.json'))
 
-changed_count = 0
-changed_indices = []
-if isinstance(a, list) and isinstance(b, list):
-    for i in range(max(len(a), len(b))):
-        ai = a[i] if i < len(a) else None
-        bi = b[i] if i < len(b) else None
-        if ai != bi:
-            changed_indices.append(i)
-    changed_count = len(changed_indices)
-else:
-    changed_count = 0 if a == b else 1
+          changed_count = 0
+          changed_indices = []
+          if isinstance(a, list) and isinstance(b, list):
+            for i in range(max(len(a), len(b))):
+              ai = a[i] if i < len(a) else None
+              bi = b[i] if i < len(b) else None
+              if ai != bi:
+                changed_indices.append(i)
+            changed_count = len(changed_indices)
+          else:
+            changed_count = 0 if a == b else 1
 
-sample = ','.join(map(str, changed_indices[:10]))
-print(f"different={'true' if a != b else 'false'}")
-print(f"changed_count={changed_count}")
-print(f"sample_changed_indices={sample}")
-PY
+          sample = ','.join(map(str, changed_indices[:10]))
+          print(f"different={'true' if a != b else 'false'}")
+          print(f"changed_count={changed_count}")
+          print(f"sample_changed_indices={sample}")
+          PY
           DIFF=$(sed -n '1p' /tmp/vector_diff.txt | cut -d'=' -f2)
           COUNT=$(sed -n '2p' /tmp/vector_diff.txt | cut -d'=' -f2)
           SAMPLE=$(sed -n '3p' /tmp/vector_diff.txt | cut -d'=' -f2)

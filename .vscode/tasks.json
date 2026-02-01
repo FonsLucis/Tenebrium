@@ -1,0 +1,19 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "cargo test --all --workspace --verbose",
+			"type": "shell",
+			"command": "cargo",
+			"args": [
+				"test",
+				"--all",
+				"--workspace",
+				"--verbose"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		}
+	]
+}
