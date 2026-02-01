@@ -18,11 +18,12 @@
 - [x] Mined a block using genesis parameters (genesis-mined.json)
 - [x] Submitted mined block to update UTXO (utxo-after.jsonl)
 - [x] Removed GPG signing from release workflow to clear lint errors
+- [x] Committed and pushed a full sync to origin/format-rebased
 
 ## Next (Top 3)
 1. Decide whether to version artifacts with architecture suffix
 2. Consider tagging policy for release notes (Since range)
-3. Consider documenting v1/v2 network ID conventions in README
+3. Decide whether to keep genesis-mined.json/utxo-*.jsonl in repo
 
 ## How to run
 - cargo fmt --all -- --check
@@ -34,3 +35,4 @@
 - CANONICAL_TXID_V2.md still lists TODOs for tooling/protocol work
 - P2P now requires explicit txid_version and must match local config (v1/v2)
 - CI runs fmt/test/verify_vectors and auto-PRs vector updates; release.yml builds multi-OS artifacts and publishes a GitHub Release (no GPG signing)
+- Large full-repo sync commit pushed (511 files changed)
