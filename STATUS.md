@@ -19,16 +19,18 @@
 - [x] Submitted mined block to update UTXO (utxo-after.jsonl)
 - [x] Removed GPG signing from release workflow to clear lint errors
 - [x] Committed and pushed a full sync to origin/format-rebased
+- [x] Created branch deletion tools (release브랜치 제외 전부 삭제)
 
 ## Next (Top 3)
-1. Decide whether to version artifacts with architecture suffix
-2. Consider tagging policy for release notes (Since range)
-3. Decide whether to keep genesis-mined.json/utxo-*.jsonl in repo
+1. Execute branch deletion via GitHub Actions workflow or manual script
+2. Decide whether to version artifacts with architecture suffix
+3. Consider tagging policy for release notes (Since range)
 
 ## How to run
 - cargo fmt --all -- --check
 - cargo test --all --workspace --verbose
 - python tools/verify_vectors.py
+- Branch deletion: See docs/BRANCH_DELETION_GUIDE.md or run ./tools/delete-branches.sh
 
 ## Notes (깨진 것/리스크)
 - Build artifacts under target/ are now ignored by .gitignore
