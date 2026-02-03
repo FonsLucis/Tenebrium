@@ -1,0 +1,74 @@
+name: Delete All Branches Except Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type "DELETE" to confirm branch deletion'
+        required: true
+        default: ''
+
+jobs:
+  delete-branches:
+    runs-on: ubuntu-latest
+    if: github.event.inputs.confirm == 'DELETE'
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Delete all branches except release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Fetching all remote branches..."
+          git fetch --all
+          
+          # Get all remote branches
+          branches=$(git ls-remote --heads origin | awk '{print $2}' | sed 's|refs/heads/||')
+          
+          echo "Found branches:"
+          echo "$branches"
+          echo ""
+          
+          # Preserve these branches
+          PRESERVE_BRANCHES=("release" "main" "master")
+          
+          echo "Deleting branches (preserving: ${PRESERVE_BRANCHES[@]})..."
+          for branch in $branches; do
+            should_delete=true
+            
+            # Check if branch should be preserved
+            for preserve in "${PRESERVE_BRANCHES[@]}"; do
+              if [ "$branch" == "$preserve" ]; then
+                echo "✓ Preserving: $branch"
+                should_delete=false
+                break
+              fi
+            done
+            
+            # Delete the branch if not preserved
+            if [ "$should_delete" = true ]; then
+              echo "✗ Deleting: $branch"
+              git push origin --delete "$branch" || echo "Failed to delete $branch"
+            fi
+          done
+          
+          echo ""
+          echo "Branch deletion complete!"
+          
+          # List remaining branches
+          echo ""
+          echo "Remaining branches:"
+          git ls-remote --heads origin | awk '{print $2}' | sed 's|refs/heads/||'
+
+      - name: Summary
+        run: |
+          echo "### Branch Deletion Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Deleted all branches except:" >> $GITHUB_STEP_SUMMARY
+          echo "- release" >> $GITHUB_STEP_SUMMARY
+          echo "- main (if exists)" >> $GITHUB_STEP_SUMMARY
+          echo "- master (if exists)" >> $GITHUB_STEP_SUMMARY
